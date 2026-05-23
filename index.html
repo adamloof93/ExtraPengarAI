@@ -1,32 +1,642 @@
-export default async function handler(req, res) {
-  if (req.method !== 'POST')
-    return res.status(405).json({ error: 'Method not allowed' });
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Extrapengar</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c28;
+    --border: #2a2a3d;
+    --accent: #c8f53a;
+    --accent2: #7c3aed;
+    --text: #f0f0f5;
+    --muted: #6b6b85;
+    --gold: #f59e0b;
+    --green: #34d399;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; overflow-x: hidden; }
+  body::before { content: ''; position: fixed; inset: 0; background: radial-gradient(ellipse 60% 40% at 80% 10%, rgba(124,58,237,0.12) 0%, transparent 60%), radial-gradient(ellipse 40% 30% at 10% 80%, rgba(200,245,58,0.06) 0%, transparent 50%); pointer-events: none; z-index: 0; }
+  .container { max-width: 680px; margin: 0 auto; padding: 40px 20px 80px; position: relative; z-index: 1; }
 
-  const { prompt } = req.body;
-  if (!prompt)
-    return res.status(400).json({ error: 'Missing prompt' });
+  /* HEADER */
+  header { text-align: center; margin-bottom: 40px; animation: fadeDown 0.6s ease both; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(200,245,58,0.1); border: 1px solid rgba(200,245,58,0.25); color: var(--accent); font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; padding: 5px 12px; border-radius: 100px; margin-bottom: 20px; }
+  .badge::before { content: '⚡'; }
+  h1 { font-family: 'Syne', sans-serif; font-size: clamp(36px, 8vw, 58px); font-weight: 800; line-height: 1.05; letter-spacing: -0.03em; margin-bottom: 14px; }
+  h1 span { color: var(--accent); }
+  .subtitle { color: var(--muted); font-size: 16px; font-weight: 300; line-height: 1.6; max-width: 420px; margin: 0 auto 20px; }
 
-  try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        max_tokens: 500,
-        messages: [{ role: 'user', content: prompt }]
-      })
+  /* PREMIUM BANNER */
+  .premium-banner { background: linear-gradient(135deg, rgba(245,158,11,0.12), rgba(124,58,237,0.08)); border: 1px solid rgba(245,158,11,0.3); border-radius: 16px; padding: 16px 20px; display: flex; align-items: center; gap: 14px; margin-bottom: 28px; cursor: pointer; transition: border-color 0.2s, transform 0.15s; animation: fadeUp 0.6s 0.1s ease both; }
+  .premium-banner:hover { border-color: rgba(245,158,11,0.6); transform: translateY(-1px); }
+  .premium-crown { font-size: 28px; flex-shrink: 0; }
+  .premium-text { flex: 1; }
+  .premium-text strong { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: var(--gold); display: block; margin-bottom: 2px; }
+  .premium-text span { font-size: 12.5px; color: var(--muted); }
+  .premium-cta { background: var(--gold); color: #000; border: none; border-radius: 10px; padding: 8px 14px; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+
+  /* FORM */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 32px; margin-bottom: 24px; animation: fadeUp 0.6s 0.2s ease both; }
+  .card-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 28px; }
+  .inputs-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .field { display: flex; flex-direction: column; gap: 8px; }
+  label { font-size: 13px; font-weight: 500; color: var(--muted); }
+  .input-wrap { position: relative; }
+  .input-wrap .unit { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-size: 13px; color: var(--muted); pointer-events: none; }
+  input[type="number"] { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 48px 14px 16px; color: var(--text); font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; outline: none; transition: border-color 0.2s, box-shadow 0.2s; -moz-appearance: textfield; }
+  input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+  input[type="number"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(200,245,58,0.1); }
+  .generate-btn { width: 100%; background: var(--accent); color: #0a0a0f; border: none; border-radius: 14px; padding: 18px 28px; font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 800; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .generate-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(200,245,58,0.3); }
+  .generate-btn.loading { background: #8ab52a; pointer-events: none; }
+  .spinner { width: 18px; height: 18px; border: 2px solid rgba(0,0,0,0.2); border-top-color: #000; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
+  .loading .spinner { display: block; }
+  .loading .btn-text { opacity: 0.7; }
+  .err { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); border-radius: 12px; padding: 14px 16px; font-size: 13.5px; color: #f87171; margin-top: 16px; display: none; }
+
+  /* RESULTS */
+  #results { display: none; }
+  .results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; animation: fadeUp 0.4s ease both; }
+  .results-title { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; }
+  .results-meta { font-size: 13px; color: var(--muted); }
+
+  /* IDEA CARD */
+  .idea-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 22px 24px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.2s;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .idea-card::before { content: ''; position: absolute; inset: 0; background: linear-gradient(120deg, rgba(200,245,58,0.04), transparent); opacity: 0; transition: opacity 0.2s; }
+  .idea-card:hover { border-color: rgba(200,245,58,0.35); transform: translateY(-1px); }
+  .idea-card:hover::before { opacity: 1; }
+
+  /* Top row: icon + title + arrow */
+  .idea-top { display: flex; align-items: center; gap: 14px; }
+  .idea-icon { width: 44px; height: 44px; border-radius: 12px; background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+  .idea-title { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; flex: 1; }
+  .idea-arrow { color: var(--muted); font-size: 20px; transition: transform 0.2s, color 0.2s; flex-shrink: 0; }
+  .idea-card:hover .idea-arrow { transform: translateX(3px); color: var(--accent); }
+
+  /* Tags row — always visible */
+  .idea-tags { display: flex; gap: 7px; flex-wrap: wrap; }
+  .tag { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 100px; letter-spacing: 0.04em; }
+  .tag-time { background: rgba(124,58,237,0.15); color: #a78bfa; border: 1px solid rgba(124,58,237,0.2); }
+  .tag-earn { background: rgba(200,245,58,0.1); color: var(--accent); border: 1px solid rgba(200,245,58,0.2); }
+  .tag-easy     { background: rgba(52,211,153,0.1);  color: #34d399; border: 1px solid rgba(52,211,153,0.2); }
+  .tag-medium   { background: rgba(245,158,11,0.1);  color: var(--gold); border: 1px solid rgba(245,158,11,0.2); }
+  .tag-advanced { background: rgba(239,68,68,0.1);   color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
+
+  /* Blurred description */
+  .idea-blur-wrap { position: relative; }
+  .idea-desc-blurred {
+    font-size: 13.5px;
+    color: var(--muted);
+    line-height: 1.6;
+    filter: blur(5px);
+    user-select: none;
+    pointer-events: none;
+    transition: filter 0.3s;
+  }
+  .idea-unlock-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.06em;
+  }
+  .idea-unlock-overlay span { font-size: 14px; }
+
+  /* AD SLOT */
+  .ad-slot { background: var(--surface2); border: 1px dashed var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 12px; display: flex; align-items: center; gap: 14px; position: relative; }
+  .ad-label { position: absolute; top: 6px; right: 10px; font-size: 9px; font-weight: 600; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+  .ad-img { width: 52px; height: 52px; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+  .ad-body { flex: 1; }
+  .ad-body strong { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; display: block; margin-bottom: 3px; }
+  .ad-body span { font-size: 12px; color: var(--muted); line-height: 1.4; }
+  .ad-visit { background: transparent; border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 7px 12px; font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: border-color 0.2s; }
+  .ad-visit:hover { border-color: var(--accent); }
+
+  /* GUIDE VIEW */
+  #guide-view { display: none; animation: fadeUp 0.5s ease both; }
+  .guide-header { background: linear-gradient(135deg, rgba(124,58,237,0.15), rgba(200,245,58,0.05)); border: 1px solid rgba(200,245,58,0.2); border-radius: 20px; padding: 28px; margin-bottom: 24px; text-align: center; }
+  .guide-header h2 { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; margin: 12px 0 8px; }
+  .guide-header p { font-size: 14px; color: var(--muted); }
+  .guide-section { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 14px; }
+  .guide-section h3 { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
+  .step-num { width: 28px; height: 28px; background: var(--accent); color: #000; border-radius: 50%; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .guide-section p { font-size: 14px; color: var(--muted); line-height: 1.75; margin-bottom: 8px; }
+  .guide-section ul { padding-left: 0; list-style: none; }
+  .guide-section li { font-size: 14px; color: var(--muted); line-height: 1.65; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.04); display: flex; gap: 8px; }
+  .guide-section li::before { content: '→'; color: var(--accent); font-weight: 700; flex-shrink: 0; }
+  .guide-loading { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 14px; }
+  .guide-loading .big-spinner { width: 44px; height: 44px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+  .back-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 12px; padding: 12px 20px; font-family: 'DM Sans', sans-serif; font-size: 14px; cursor: pointer; transition: border-color 0.2s, color 0.2s; margin-top: 8px; display: inline-block; }
+  .back-btn:hover { border-color: var(--muted); color: var(--text); }
+
+  /* OVERLAYS */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(12px); z-index: 100; display: none; align-items: flex-end; justify-content: center; padding: 20px; }
+  .overlay.open { display: flex; animation: fadeIn 0.25s ease; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 32px; max-width: 480px; width: 100%; animation: slideUp 0.35s cubic-bezier(0.34,1.56,0.64,1) both; }
+  .modal-icon { width: 64px; height: 64px; border-radius: 18px; display: flex; align-items: center; justify-content: center; font-size: 30px; margin: 0 auto 18px; }
+  .modal-title { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; text-align: center; margin-bottom: 8px; }
+  .modal-sub { text-align: center; color: var(--muted); font-size: 14px; line-height: 1.6; margin-bottom: 22px; }
+  .selected-pill { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 20px; display: flex; gap: 10px; align-items: center; }
+  .selected-pill strong { font-family: 'Syne', sans-serif; font-size: 15px; }
+  .features-list { margin-bottom: 22px; }
+  .features-list h4 { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 12px; }
+  .feat { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 9px; font-size: 13.5px; }
+  .feat::before { content: '✓'; color: var(--accent); font-weight: 700; flex-shrink: 0; }
+  .price-display { display: flex; align-items: baseline; justify-content: center; gap: 6px; margin-bottom: 20px; }
+  .price-big { font-family: 'Syne', sans-serif; font-size: 44px; font-weight: 800; color: var(--accent); }
+  .price-note { font-size: 13px; color: var(--muted); }
+  .btn-primary { width: 100%; background: linear-gradient(135deg, var(--accent2), #6d28d9); color: white; border: none; border-radius: 14px; padding: 18px; font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 800; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; margin-bottom: 10px; }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(124,58,237,0.4); }
+  .btn-primary.gold { background: linear-gradient(135deg, var(--gold), #d97706); }
+  .btn-primary.gold:hover { box-shadow: 0 12px 40px rgba(245,158,11,0.4); }
+  .btn-secondary { width: 100%; background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 12px; padding: 13px; font-family: 'DM Sans', sans-serif; font-size: 14px; cursor: pointer; transition: border-color 0.2s, color 0.2s; }
+  .btn-secondary:hover { border-color: var(--muted); color: var(--text); }
+  .or-divider { text-align: center; font-size: 12px; color: var(--muted); margin: 14px 0; position: relative; }
+  .or-divider::before, .or-divider::after { content: ''; position: absolute; top: 50%; width: 42%; height: 1px; background: var(--border); }
+  .or-divider::before { left: 0; } .or-divider::after { right: 0; }
+  .upsell-box { background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(124,58,237,0.06)); border: 1px solid rgba(245,158,11,0.25); border-radius: 14px; padding: 16px 18px; margin-bottom: 14px; font-size: 13px; color: var(--text); line-height: 1.55; }
+  .upsell-box strong { color: var(--gold); }
+
+  /* AD MODAL */
+  .ad-modal-brand { width: 72px; height: 72px; border-radius: 18px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; font-size: 36px; }
+  .ad-modal-title { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800; margin-bottom: 6px; text-align: center; }
+  .ad-modal-desc { font-size: 13.5px; color: var(--muted); line-height: 1.6; margin-bottom: 20px; text-align: center; }
+  .ad-progress-wrap { background: var(--surface2); border-radius: 100px; height: 6px; margin-bottom: 8px; overflow: hidden; }
+  .ad-progress-bar { height: 100%; background: var(--accent); border-radius: 100px; width: 0%; transition: width 0.1s linear; }
+  .ad-timer { font-size: 12px; color: var(--muted); margin-bottom: 20px; text-align: center; }
+  .ad-skip-btn { width: 100%; background: var(--accent); color: #000; border: none; border-radius: 14px; padding: 16px; font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 800; cursor: pointer; opacity: 0.3; pointer-events: none; transition: opacity 0.3s; }
+  .ad-skip-btn.ready { opacity: 1; pointer-events: all; }
+  .ad-note { font-size: 11px; color: var(--muted); margin-top: 10px; text-align: center; }
+
+  /* PREMIUM PERKS */
+  .premium-perks { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 22px; }
+  .perk { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 13px; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+
+  @keyframes fadeDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 480px) {
+    .inputs-row { grid-template-columns: 1fr; }
+    .card, .modal { padding: 24px 20px; }
+    .premium-perks { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="badge">Tjäna mer pengar</div>
+    <h1>Extra<span>pengar</span></h1>
+    <p class="subtitle">Avancerad specialteknik tar fram skräddarsydda idéer efter dina behov.</p>
+  </header>
+
+  <div class="premium-banner" id="premiumBanner" onclick="openPremiumModal()">
+    <div class="premium-crown">👑</div>
+    <div class="premium-text">
+      <strong>Prova Premium — 449 kr/mån</strong>
+      <span>Obegränsade manualer, ingen reklam, prioriterad AI</span>
+    </div>
+    <button class="premium-cta">Uppgradera</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Dina förutsättningar</div>
+    <div class="inputs-row">
+      <div class="field">
+        <label>Önskat belopp</label>
+        <div class="input-wrap">
+          <input type="number" id="amount" placeholder="5000" min="1" />
+          <span class="unit">kr</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Timmar per vecka</label>
+        <div class="input-wrap">
+          <input type="number" id="hours" placeholder="10" min="1" max="168" />
+          <span class="unit">h/v</span>
+        </div>
+      </div>
+    </div>
+    <button class="generate-btn" id="generateBtn" onclick="generateIdeas()">
+      <div class="spinner"></div>
+      <span class="btn-text">✦ Generera idéer</span>
+    </button>
+    <div class="err" id="errMsg"></div>
+  </div>
+
+  <div id="results">
+    <div class="results-header">
+      <div class="results-title">Dina möjligheter</div>
+      <div class="results-meta" id="resultsMeta"></div>
+    </div>
+    <div id="ideasContainer"></div>
+  </div>
+
+  <div id="guide-view">
+    <div class="guide-header">
+      <div style="font-size:36px" id="guideEmoji">🚀</div>
+      <h2 id="guide-title">Din personliga manual</h2>
+      <p id="guide-subtitle"></p>
+    </div>
+    <div id="guide-content"></div>
+    <button class="back-btn" onclick="backToResults()">← Tillbaka till idéer</button>
+  </div>
+</div>
+
+<!-- AD MODAL -->
+<div class="overlay" id="adModal">
+  <div class="modal">
+    <div class="ad-modal-brand" id="adBrand">💼</div>
+    <div class="ad-modal-title" id="adTitle"></div>
+    <div class="ad-modal-desc" id="adDesc"></div>
+    <div class="ad-progress-wrap"><div class="ad-progress-bar" id="adBar"></div></div>
+    <div class="ad-timer" id="adTimer"></div>
+    <button class="ad-skip-btn" id="adSkipBtn" onclick="skipAd()">Fortsätt →</button>
+    <div class="ad-note">👑 <a style="color:var(--gold);cursor:pointer" onclick="closeAdOpenPremium()">Uppgradera till Premium</a> och slipp all reklam</div>
+  </div>
+</div>
+
+<!-- PAYWALL MODAL -->
+<div class="overlay" id="paywallModal">
+  <div class="modal">
+    <div class="modal-icon" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)">📋</div>
+    <div class="modal-title">Din personliga manual</div>
+    <div class="modal-sub">Få en skräddarsydd steg-för-steg manual baserad på just dina förutsättningar och mål.</div>
+    <div class="selected-pill">
+      <span style="font-size:22px" id="pillIcon">💡</span>
+      <div>
+        <div style="color:var(--muted);font-size:12px;margin-bottom:2px">Vald idé</div>
+        <strong id="pillTitle"></strong>
+      </div>
+    </div>
+    <div class="features-list">
+      <h4>Din manual innehåller</h4>
+      <div class="feat">Exakt vad du gör — dag för dag, vecka för vecka</div>
+      <div class="feat">Anpassad till dina ${hours} timmar och ditt mål</div>
+      <div class="feat">Vilka verktyg och plattformar som passar dig</div>
+      <div class="feat">Hur du undviker de vanligaste misstagen</div>
+      <div class="feat">Tips för att skala upp när du är igång</div>
+    </div>
+    <div class="price-display">
+      <div class="price-big">49 kr</div>
+      <div class="price-note">engångspris</div>
+    </div>
+    <button class="btn-primary" id="buyBtn" onclick="purchaseGuide()">🔓 Lås upp min manual</button>
+    <div class="or-divider">eller</div>
+    <div class="upsell-box">🌟 Med <strong>Premium (449 kr/mån)</strong> får du obegränsat med manualer + ingen reklam</div>
+    <button class="btn-primary gold" onclick="closePaywallOpenPremium()">👑 Gå Premium istället</button>
+    <div style="margin-top:10px"></div>
+    <button class="btn-secondary" onclick="closeModal('paywallModal')">Stäng</button>
+  </div>
+</div>
+
+<!-- PREMIUM MODAL -->
+<div class="overlay" id="premiumModal">
+  <div class="modal">
+    <div class="modal-icon" style="background:linear-gradient(135deg,#d97706,#f59e0b)">👑</div>
+    <div class="modal-title">Extrapengar Premium</div>
+    <div class="modal-sub">Allt du behöver för att maximera din extrainkomst — utan begränsningar.</div>
+    <div class="premium-perks">
+      <div class="perk">♾️ Obegränsade manualer</div>
+      <div class="perk">🚫 Ingen reklam</div>
+      <div class="perk">⚡ Prioriterad AI</div>
+      <div class="perk">🔄 Nya idéer varje dag</div>
+      <div class="perk">🎯 Anpassad coaching</div>
+      <div class="perk">💬 Premium support</div>
+    </div>
+    <div class="price-display">
+      <div class="price-big" style="color:var(--gold)">449 kr</div>
+      <div class="price-note">per månad · avsluta när som helst</div>
+    </div>
+    <button class="btn-primary gold" id="premiumBtn" onclick="purchasePremium()">👑 Starta Premium nu</button>
+    <div style="margin-top:10px"></div>
+    <button class="btn-secondary" onclick="closeModal('premiumModal')">Kanske senare</button>
+  </div>
+</div>
+
+<script>
+  let ideasData = [], currentIdea = null, isPremium = false, purchased = new Set(), adCallback = null, adTimer = null;
+
+  const ADS = [
+    { emoji:'💼', bg:'linear-gradient(135deg,#1e3a5f,#2d6a9f)', title:'Bli din egen chef med Fiverr', desc:'Tusentals svenskar tjänar redan extra som frilansare på Fiverr. Registrera dig gratis och börja ta betalt för dina kunskaper idag.', link:'https://fiverr.com' },
+    { emoji:'📈', bg:'linear-gradient(135deg,#064e3b,#065f46)', title:'Investera smart med Avanza', desc:'Sveriges populäraste investeringsapp. Kom igång gratis och börja bygga din förmögenhet med aktier och fonder.', link:'https://avanza.se' },
+    { emoji:'🛒', bg:'linear-gradient(135deg,#4c1d95,#6d28d9)', title:'Sälj på Tradera & tjäna direkt', desc:'Rensa hemma och tjäna pengar på det du inte använder. Över 1 miljon produkter säljs varje månad.', link:'https://tradera.com' },
+    { emoji:'🎓', bg:'linear-gradient(135deg,#7c2d12,#9a3412)', title:'Lär dig något nytt med Udemy', desc:'Över 200 000 kurser för att lära dig en kompetens du kan ta betalt för. Kurser från 89 kr.', link:'https://udemy.com' },
+  ];
+
+  function diffTag(diff) {
+    const map = { 'Lätt': 'tag-easy', 'Medel': 'tag-medium', 'Avancerad': 'tag-advanced' };
+    return map[diff] || 'tag-medium';
+  }
+
+  // ── Generate ──
+  async function generateIdeas() {
+    const amount = document.getElementById('amount').value;
+    const hours  = document.getElementById('hours').value;
+    const err    = document.getElementById('errMsg');
+    err.style.display = 'none';
+    if (!amount || !hours) { err.textContent = 'Fyll i både belopp och timmar.'; err.style.display = 'block'; return; }
+    if (parseInt(hours) > 168) { err.textContent = 'Det finns bara 168 timmar i en vecka 😄'; err.style.display = 'block'; return; }
+
+    const btn = document.getElementById('generateBtn');
+    btn.classList.add('loading');
+    btn.querySelector('.btn-text').textContent = 'Analyserar...';
+    document.getElementById('results').style.display = 'none';
+    document.getElementById('guide-view').style.display = 'none';
+
+    try {
+      const res = await fetch("/functions/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: `Du hjälper svenska människor tjäna extra pengar. Mål: ${amount} kr/mån, tid: ${hours} h/vecka.\n\nGenerera exakt 5 konkreta idéer. Svara BARA med JSON (inga backticks, inga förklaringar):\n{"ideas":[{"icon":"emoji","title":"Kort titel max 5 ord","description":"2-3 meningar om hur det fungerar och varför det passar dessa förutsättningar","timePerWeek":"X-Y h/v","earning":"X 000–Y 000 kr/mån","difficulty":"Lätt|Medel|Avancerad"}]}\n\nAnpassa noga till ${hours}h/vecka och ${amount}kr mål. Svårighetsgrad ska BARA vara ett av: Lätt, Medel, Avancerad.` })
+      });
+      const d = await res.json();
+      const raw = d.content.map(i => i.text || '').join('');
+      const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
+      ideasData = parsed.ideas;
+      renderIdeas(amount, hours);
+    } catch(e) {
+      err.textContent = 'Något gick fel. Försök igen.'; err.style.display = 'block';
+    }
+
+    btn.classList.remove('loading');
+    btn.querySelector('.btn-text').textContent = '✦ Generera idéer';
+  }
+
+  // ── Render ideas ──
+  function renderIdeas(amount, hours) {
+    const c = document.getElementById('ideasContainer');
+    document.getElementById('resultsMeta').textContent = `${parseInt(amount).toLocaleString('sv')} kr · ${hours} h/v`;
+    c.innerHTML = '';
+
+    ideasData.forEach((idea, i) => {
+      const card = document.createElement('div');
+      card.className = 'idea-card';
+      card.style.animation = `fadeUp 0.4s ${0.05 * i}s ease both`;
+      card.onclick = () => handleIdeaClick(idea);
+
+      card.innerHTML = `
+        <div class="idea-top">
+          <div class="idea-icon">${idea.icon}</div>
+          <div class="idea-title">${idea.title}</div>
+          <div class="idea-arrow">›</div>
+        </div>
+        <div class="idea-tags">
+          <span class="tag tag-time">⏱ ${idea.timePerWeek}</span>
+          <span class="tag tag-earn">💰 ${idea.earning}</span>
+          <span class="tag ${diffTag(idea.difficulty)}">${idea.difficulty}</span>
+        </div>
+        <div class="idea-blur-wrap">
+          <div class="idea-desc-blurred">${idea.description}</div>
+          <div class="idea-unlock-overlay"><span>🔒</span> Lås upp för att läsa mer</div>
+        </div>`;
+
+      c.appendChild(card);
+
+      // Ad slots after card index 1 and 3 (non-premium only)
+      if (!isPremium && (i === 1 || i === 3)) {
+        const ad = ADS[i === 1 ? 0 : 2];
+        const adEl = document.createElement('div');
+        adEl.className = 'ad-slot';
+        adEl.innerHTML = `
+          <div class="ad-label">Annons</div>
+          <div class="ad-img" style="background:${ad.bg}">${ad.emoji}</div>
+          <div class="ad-body">
+            <strong>${ad.title}</strong>
+            <span>${ad.desc.substring(0, 65)}...</span>
+          </div>
+          <button class="ad-visit" onclick="window.open('${ad.link}','_blank')">Besök →</button>`;
+        c.appendChild(adEl);
+      }
     });
 
-    const data = await response.json();
-    const result = data.choices?.[0]?.message?.content
-      || 'Kunde inte generera idé.';
-
-    res.status(200).json({ result });
-
-  } catch (err) {
-    res.status(500).json({ error: 'API error', details: err.message });
+    document.getElementById('results').style.display = 'block';
   }
-}
+
+  // ── Click idea ──
+  function handleIdeaClick(idea) {
+    currentIdea = idea;
+    if (purchased.has(idea.title) || isPremium) { showGuide(idea); return; }
+    showAd(() => openPaywall(idea));
+  }
+
+  // ── Ad ──
+  const AD_SECS = 8;
+  function showAd(cb) {
+    adCallback = cb;
+    const ad = ADS[Math.floor(Math.random() * ADS.length)];
+    document.getElementById('adBrand').textContent = ad.emoji;
+    document.getElementById('adBrand').style.background = ad.bg;
+    document.getElementById('adTitle').textContent = ad.title;
+    document.getElementById('adDesc').textContent = ad.desc;
+    document.getElementById('adBar').style.width = '0%';
+    const skipBtn = document.getElementById('adSkipBtn');
+    skipBtn.classList.remove('ready');
+    document.getElementById('adModal').classList.add('open');
+
+    let elapsed = 0;
+    clearInterval(adTimer);
+    adTimer = setInterval(() => {
+      elapsed += 0.1;
+      document.getElementById('adBar').style.width = Math.min((elapsed / AD_SECS) * 100, 100) + '%';
+      const left = Math.ceil(AD_SECS - elapsed);
+      if (elapsed >= AD_SECS) {
+        clearInterval(adTimer);
+        document.getElementById('adTimer').textContent = 'Klar! Du kan nu fortsätta.';
+        skipBtn.classList.add('ready');
+      } else {
+        document.getElementById('adTimer').textContent = `Vänta ${left} sekund${left !== 1 ? 'er' : ''}...`;
+      }
+    }, 100);
+  }
+
+  function skipAd() {
+    clearInterval(adTimer);
+    document.getElementById('adModal').classList.remove('open');
+    if (adCallback) { adCallback(); adCallback = null; }
+  }
+
+  function closeAdOpenPremium() {
+    clearInterval(adTimer);
+    document.getElementById('adModal').classList.remove('open');
+    openPremiumModal();
+  }
+
+  // ── Paywall ──
+  function openPaywall(idea) {
+    document.getElementById('pillIcon').textContent = idea.icon;
+    document.getElementById('pillTitle').textContent = idea.title;
+    document.getElementById('paywallModal').classList.add('open');
+  }
+
+  function closePaywallOpenPremium() {
+    document.getElementById('paywallModal').classList.remove('open');
+    openPremiumModal();
+  }
+
+  async function purchaseGuide() {
+    const btn = document.getElementById('buyBtn');
+    btn.textContent = '⏳ Behandlar...'; btn.style.opacity = '0.7'; btn.disabled = true;
+    await new Promise(r => setTimeout(r, 1300));
+    document.getElementById('paywallModal').classList.remove('open');
+    purchased.add(currentIdea.title);
+    showGuide(currentIdea);
+    btn.textContent = '🔓 Lås upp min manual'; btn.style.opacity = '1'; btn.disabled = false;
+  }
+
+  // ── Premium ──
+  function openPremiumModal() { document.getElementById('premiumModal').classList.add('open'); }
+
+  async function purchasePremium() {
+    const btn = document.getElementById('premiumBtn');
+    btn.textContent = '⏳ Aktiverar...'; btn.style.opacity = '0.7'; btn.disabled = true;
+    await new Promise(r => setTimeout(r, 1400));
+    isPremium = true;
+    document.getElementById('premiumModal').classList.remove('open');
+    const banner = document.getElementById('premiumBanner');
+    banner.innerHTML = `<div class="premium-crown">👑</div><div class="premium-text"><strong style="color:var(--green)">Premium aktiverat!</strong><span>Obegränsade manualer och ingen reklam</span></div>`;
+    banner.style.cursor = 'default'; banner.onclick = null;
+    const amount = document.getElementById('amount').value;
+    const hours  = document.getElementById('hours').value;
+    if (ideasData.length) renderIdeas(amount, hours);
+    btn.textContent = '👑 Starta Premium nu'; btn.style.opacity = '1'; btn.disabled = false;
+  }
+
+  // ── Guide (skräddarsydd manual) ──
+  async function showGuide(idea) {
+    const amount = document.getElementById('amount').value;
+    const hours  = document.getElementById('hours').value;
+    document.getElementById('results').style.display = 'none';
+    document.getElementById('guide-view').style.display = 'block';
+    document.getElementById('guideEmoji').textContent = idea.icon;
+    document.getElementById('guide-title').textContent = idea.title + ' — Din manual';
+    document.getElementById('guide-subtitle').textContent = `Anpassad för ${hours} h/vecka · mål ${parseInt(amount).toLocaleString('sv')} kr`;
+
+    const gc = document.getElementById('guide-content');
+    gc.innerHTML = `<div class="guide-loading"><div class="big-spinner"></div><div>Skapar din personliga manual...</div></div>`;
+
+    try {
+      const res = await fetch("/functions/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: `Du skapar en personlig, skräddarsydd manual för en person med dessa exakta förutsättningar:
+- Idé: ${idea.title}
+- Mål: ${amount} kr/månad
+- Tillgänglig tid: ${hours} timmar per vecka
+- Svårighetsgrad: ${idea.difficulty} (Lätt / Medel / Avancerad)
+
+Manualen ska vara helt anpassad till just dessa siffror och förutsättningar — inte generisk. Varje steg ska vara konkret och handlingsorienterat. Nämn specifika belopp, tidsramar och plattformar som passar Sverige.
+
+Svara BARA med JSON (inga backticks):
+{
+  "intro": "1-2 meningar om varför detta är rätt val för just denna person med dessa förutsättningar.",
+  "steps": [
+    {
+      "title": "Steg-titel",
+      "what": "Exakt vad du gör i detta steg — konkret och specifikt.",
+      "how": ["Konkret instruktion 1", "Konkret instruktion 2", "Konkret instruktion 3"],
+      "timeframe": "T.ex. Dag 1–3 eller Vecka 1"
+    }
+  ],
+  "weekSchedule": "Hur du fördelar dina ${hours} timmar per vecka i praktiken — specifik dag-för-dag beskrivning.",
+  "milestone30": "Vad du realistiskt kan förvänta dig efter 30 dagar med ${hours} h/vecka.",
+  "milestone90": "Vad du realistiskt kan förvänta dig efter 90 dagar och hur nära ${amount} kr/mån du är.",
+  "warning": "Det viktigaste misstaget att undvika för just denna idé och hur du undviker det."
+}` })
+      });
+      const d = await res.json();
+      const raw = d.content.map(i => i.text || '').join('');
+      const g = JSON.parse(raw.replace(/```json|```/g, '').trim());
+      renderManual(g, amount, hours);
+    } catch(e) {
+      gc.innerHTML = `<div class="err" style="display:block">Kunde inte ladda manualen. Försök igen.</div>`;
+    }
+  }
+
+  function renderManual(g, amount, hours) {
+    const gc = document.getElementById('guide-content');
+    let html = '';
+
+    // Intro
+    if (g.intro) {
+      html += `<div class="guide-section" style="border-color:rgba(200,245,58,0.2)"><p style="color:var(--text);font-size:15px;line-height:1.7">${g.intro}</p></div>`;
+    }
+
+    // Steps
+    g.steps.forEach((s, i) => {
+      html += `<div class="guide-section">
+        <h3><span class="step-num">${i+1}</span>${s.title} <span style="font-family:'DM Sans';font-size:12px;font-weight:400;color:var(--muted);margin-left:auto">${s.timeframe || ''}</span></h3>
+        <p>${s.what}</p>
+        ${s.how ? '<ul>' + s.how.map(h => `<li>${h}</li>`).join('') + '</ul>' : ''}
+      </div>`;
+    });
+
+    // Weekly schedule
+    if (g.weekSchedule) {
+      html += `<div class="guide-section" style="border-color:rgba(124,58,237,0.25)">
+        <h3>📅 Ditt veckoschema (${hours} h/vecka)</h3>
+        <p>${g.weekSchedule}</p>
+      </div>`;
+    }
+
+    // Milestones
+    html += `<div class="guide-section" style="border-color:rgba(52,211,153,0.2)">
+      <h3>🎯 Dina milstolpar</h3>
+      ${g.milestone30 ? `<p><strong style="color:var(--green)">30 dagar:</strong> ${g.milestone30}</p>` : ''}
+      ${g.milestone90 ? `<p style="margin-top:10px"><strong style="color:var(--accent)">90 dagar:</strong> ${g.milestone90}</p>` : ''}
+    </div>`;
+
+    // Warning
+    if (g.warning) {
+      html += `<div class="guide-section" style="border-color:rgba(245,158,11,0.25)">
+        <h3>⚠️ Undvik detta misstaget</h3>
+        <p>${g.warning}</p>
+      </div>`;
+    }
+
+    gc.innerHTML = html;
+  }
+
+  function backToResults() {
+    document.getElementById('guide-view').style.display = 'none';
+    document.getElementById('results').style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  ['paywallModal','premiumModal'].forEach(id => {
+    document.getElementById(id).addEventListener('click', function(e) {
+      if (e.target === this) closeModal(id);
+    });
+  });
+  // Ad modal cannot be closed by clicking outside
+  document.getElementById('adModal').addEventListener('click', function(e) { e.stopPropagation(); });
+</script>
+</body>
+</html>
